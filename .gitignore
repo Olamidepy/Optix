@@ -74,3 +74,4 @@ models/
 *.db
 *.db-journal
 *.db-wal
+.vs/
