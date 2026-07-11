@@ -166,9 +166,39 @@ On database initialization, a default administrative account is automatically se
 
 ##  Roadmap / Sprint Milestone Board
 
-- **Sprint 1 (Done)**: Project scaffold, Qt setup, CMake, Theme manager, layouts.
-- **Sprint 2 (Done)**: Authentication logic, onboarding flow, student CRUD database directories, repositories.
-- **Sprint 3 (Upcoming)**: OpenCV webcam loops, face cascades, automated 60 sample image capture.
-- **Sprint 4 (Upcoming)**: LBPH recognizer integrations, model training loaders, files validation.
-- **Sprint 5 (Upcoming)**: Real-time verification checks, daily double-log preventions.
-- **Sprint 6 (Upcoming)**: Exportable stats, reports filters, dark mode transition polish, unit testing.
+### 🛠️ Sprint 1: Project Scaffolding & Theme System (Completed)
+- **Scaffold Workspace**: Structure directory tree separating UI Views, Common Controls, Services, Models, Repositories, Face Recognition algorithms, and Utilities.
+- **CMake Environments**: Set up root and source `CMakeLists.txt` finding Qt6, OpenCV, and SQLite3, specifying MSVC/GCC warning suppressions and C++20 options.
+- **Theme Manager**: Code the QSS stylesheet template compile engine (`ThemeManager`, `Styles.hpp`) substituting HEX variables dynamically to redraw themes.
+- **Base Layout Split**: Program navigation frames (`MainWindow`, `Sidebar`) responding to button checks.
+
+### 👥 Sprint 2: Administrative Login & Student Profile Management (Completed)
+- **SQLite Database Manager**: Implement connection managers (`Database.hpp/cpp`) compiling table schemas (`Users`, `Students`, `Attendance`) and seeding default admin accounts.
+- **Data Repositories**: Program user repositories using prepared queries (`UserRepository`, `StudentRepository`, `AttendanceRepository`).
+- **Business Services**: Program controller services (`AuthService`, `StudentService`) handling password SHA-256 encryptions and emails/phones validation regexes.
+- **GUI Views**: Design login card prompts, greeting onboarding widgets, and directory list tables with sliding modals.
+
+### 📸 Sprint 3: OpenCV Video Acquisition & Face Dataset Capture (Upcoming)
+- **Asynchronous Camera Threads**: Implement a concurrent `CameraWorker` class using `QThread`/`QObject` to query webcam video frames without blocking GUI repaint events.
+- **Haar Cascade Face Detection**: Integrate OpenCV face classifiers to identify regions of interest (ROI) in real-time frame matrices.
+- **Automated Dataset Collection**: Write grayscale images directly into local file paths (`datasets/raw/{student_id}/sample_{index}.jpg`) once faces are verified.
+- **Progressive Capture HUD**: Display progressive feedback (e.g. `45 / 60 Images`) during capture, prompting the student to move naturally.
+
+### 🎯 Sprint 4: LBPH Recognizer Model Training & Validation (Upcoming)
+- **LBPH Integration**: Interface with `cv::face::LBPHFaceRecognizer` from OpenCV Contrib.
+- **Dataset Image Processing**: Write algorithms to read `datasets/raw/` directories, convert images, map string IDs to integer labels, and feed vectors.
+- **Self-Contained Model Storage**: Save trained models alongside text label-to-ID mapping arrays directly into a single YAML configuration file (`models/lbph_model.yml`).
+- **Progress Tracking**: Design modal loaders informing the administrator about structural compilation and ready states.
+
+### ✅ Sprint 5: Face Recognition Attendance Verification (Upcoming)
+- **Trained Model Querying**: Load and cache trained LBPH parameters when starting attendance sessions.
+- **Prediction Matrix Matching**: Identify scanned faces from camera worker feeds, returning match confidence indexes.
+- **Duplicate Prevention Rules**: Query attendance logs to check if the student has already checked in on the active calendar date.
+- **HUD Alerts**: Present success checkmarks or duplicate warnings ("Attendance Recorded Successfully" / "Attendance Already Recorded").
+
+### 📊 Sprint 6: Reports Exporting, System Settings & QA Polish (Upcoming)
+- **Attendance Query Filters**: Support reports directories sorted by custom calendars, departments, levels, and name keywords.
+- **CSV Data Exporter**: Implement spreadsheet writing operations using file streams to write records into CSV formats.
+- **System Settings Panel**: Wire dropdown options for active video hardware selections and slider adjusters for confidence thresholds.
+- **QA Polish & Animations**: Add subtle frame transition fades, resolve memory cleanups, and run target build validations.
+
