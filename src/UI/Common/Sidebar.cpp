@@ -3,8 +3,54 @@
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QFrame>
+#include <QIcon>
+#include <QPixmap>
+#include <QPainter>
+#include <QFile>
+#include <QDir>
+#include <QCoreApplication>
+#include <iostream>
 
 namespace Optix::UI::Common {
+
+static QString resolveAssetPath(const QString& relativePath) {
+    QStringList searchPaths = {
+        relativePath,
+        "Public/" + relativePath,
+        "../Public/" + relativePath,
+        "../../Public/" + relativePath,
+        "../../../Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/../Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/../../Public/" + relativePath
+    };
+    for (const auto& path : searchPaths) {
+        if (QFile::exists(path)) {
+            return QDir::cleanPath(path);
+        }
+    }
+    return relativePath; // Fallback
+}
+
+static QIcon getColoredIcon(const QString& path, const QColor& color) {
+    QString resolved = resolveAssetPath(path);
+    QPixmap pixmap(resolved);
+    if (pixmap.isNull()) {
+        std::cerr << "Optix UI: Failed to load icon: " << path.toStdString() << " (resolved to: " << resolved.toStdString() << ")" << std::endl;
+        return QIcon();
+    }
+    
+    QPixmap coloredPixmap(pixmap.size());
+    coloredPixmap.fill(Qt::transparent);
+    
+    QPainter painter(&coloredPixmap);
+    painter.drawPixmap(0, 0, pixmap);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    painter.fillRect(coloredPixmap.rect(), color);
+    painter.end();
+    
+    return QIcon(coloredPixmap);
+}
 
 Sidebar::Sidebar(std::shared_ptr<Application::AppContext> context, QWidget* parent)
     : QFrame(parent), m_context(std::move(context)) {
@@ -32,12 +78,12 @@ void Sidebar::setupUI() {
     m_btnGroup->setExclusive(true);
 
     // Navigation Menu Buttons
-    QPushButton* dashBtn = createNavButton("Dashboard", "🏠", 0);
-    QPushButton* studBtn = createNavButton("Students", "👥", 1);
-    QPushButton* faceBtn = createNavButton("Face Registration", "📸", 2);
-    QPushButton* attendBtn = createNavButton("Take Attendance", "✅", 3);
-    QPushButton* reportBtn = createNavButton("Reports History", "📊", 4);
-    QPushButton* settingsBtn = createNavButton("System Settings", "⚙️", 5);
+    QPushButton* dashBtn = createNavButton("Dashboard", "Home.png", 0);
+    QPushButton* studBtn = createNavButton("Students", "Students.png", 1);
+    QPushButton* faceBtn = createNavButton("Face Registration", "Face.png", 2);
+    QPushButton* attendBtn = createNavButton("Take Attendance", "attendance.png", 3);
+    QPushButton* reportBtn = createNavButton("Reports History", "Report.png", 4);
+    QPushButton* settingsBtn = createNavButton("System Settings", "Setting.png", 5);
 
     layout->addWidget(dashBtn);
     layout->addWidget(studBtn);
@@ -55,9 +101,14 @@ void Sidebar::setupUI() {
     layout->addWidget(divider);
 
     // Logout Button at the bottom
-    QPushButton* logoutBtn = new QPushButton("🚪 Log Out", this);
+    QPushButton* logoutBtn = new QPushButton("  Log Out", this);
     logoutBtn->setObjectName("SidebarBtn");
     logoutBtn->setCursor(Qt::PointingHandCursor);
+    QIcon logoutIcon = getColoredIcon("Logout.png", QColor("#F97316"));
+    if (!logoutIcon.isNull()) {
+        logoutBtn->setIcon(logoutIcon);
+        logoutBtn->setIconSize(QSize(20, 20));
+    }
     layout->addWidget(logoutBtn);
 
     // Route signals
@@ -73,11 +124,17 @@ void Sidebar::setupUI() {
     setSelectedPage(0);
 }
 
-QPushButton* Sidebar::createNavButton(const QString& text, const QString& iconSymbol, int pageId) {
-    QPushButton* btn = new QPushButton(iconSymbol + "   " + text, this);
+QPushButton* Sidebar::createNavButton(const QString& text, const QString& iconPath, int pageId) {
+    QPushButton* btn = new QPushButton("  " + text, this);
     btn->setObjectName("SidebarBtn");
     btn->setCheckable(true);
     btn->setCursor(Qt::PointingHandCursor);
+
+    QIcon icon = getColoredIcon(iconPath, QColor("#F97316"));
+    if (!icon.isNull()) {
+        btn->setIcon(icon);
+        btn->setIconSize(QSize(20, 20));
+    }
 
     m_btnGroup->addButton(btn, pageId);
     return btn;

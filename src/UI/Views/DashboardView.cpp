@@ -6,8 +6,54 @@
 #include <QLabel>
 #include <QHeaderView>
 #include <QDateTime>
+#include <QIcon>
+#include <QPixmap>
+#include <QPainter>
+#include <QFile>
+#include <QDir>
+#include <QCoreApplication>
+#include <iostream>
 
 namespace Optix::UI::Views {
+
+static QString resolveAssetPath(const QString& relativePath) {
+    QStringList searchPaths = {
+        relativePath,
+        "Public/" + relativePath,
+        "../Public/" + relativePath,
+        "../../Public/" + relativePath,
+        "../../../Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/../Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/../../Public/" + relativePath
+    };
+    for (const auto& path : searchPaths) {
+        if (QFile::exists(path)) {
+            return QDir::cleanPath(path);
+        }
+    }
+    return relativePath; // Fallback
+}
+
+static QIcon getColoredIcon(const QString& path, const QColor& color) {
+    QString resolved = resolveAssetPath(path);
+    QPixmap pixmap(resolved);
+    if (pixmap.isNull()) {
+        std::cerr << "Optix UI: Failed to load icon: " << path.toStdString() << " (resolved to: " << resolved.toStdString() << ")" << std::endl;
+        return QIcon();
+    }
+    
+    QPixmap coloredPixmap(pixmap.size());
+    coloredPixmap.fill(Qt::transparent);
+    
+    QPainter painter(&coloredPixmap);
+    painter.drawPixmap(0, 0, pixmap);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    painter.fillRect(coloredPixmap.rect(), color);
+    painter.end();
+    
+    return QIcon(coloredPixmap);
+}
 
 DashboardView::DashboardView(std::shared_ptr<Application::AppContext> context, QWidget* parent)
     : QWidget(parent), m_context(std::move(context)) {
@@ -38,10 +84,10 @@ void DashboardView::setupUI() {
     QHBoxLayout* metricsLayout = new QHBoxLayout();
     metricsLayout->setSpacing(16);
 
-    QWidget* totalStudentsCard = createMetricCard("Total Students", "0", "👥", this);
-    QWidget* presentTodayCard = createMetricCard("Present Today", "0", "✅", this);
-    QWidget* absentTodayCard = createMetricCard("Absent Today", "0", "❌", this);
-    QWidget* accuracyCard = createMetricCard("Model Accuracy", "98.2%", "🎯", this);
+    QWidget* totalStudentsCard = createMetricCard("Total Students", "0", "Students.png", this);
+    QWidget* presentTodayCard = createMetricCard("Present Today", "0", "attendance.png", this);
+    QWidget* absentTodayCard = createMetricCard("Absent Today", "0", "Logout.png", this);
+    QWidget* accuracyCard = createMetricCard("Model Accuracy", "98.2%", "Target.png", this);
 
     metricsLayout->addWidget(totalStudentsCard);
     metricsLayout->addWidget(presentTodayCard);
@@ -70,15 +116,17 @@ void DashboardView::setupUI() {
     mainLayout->addStretch();
 }
 
-QWidget* DashboardView::createMetricCard(const QString& title, const QString& value, const QString& iconSymbol, QWidget* parent) {
+QWidget* DashboardView::createMetricCard(const QString& title, const QString& value, const QString& iconPath, QWidget* parent) {
     QFrame* card = new QFrame(parent);
     card->setObjectName("MetricCard");
 
     QHBoxLayout* cardLayout = new QHBoxLayout(card);
-    cardLayout->setContentsMargins(16, 20, 16, 20);
+    cardLayout->setContentsMargins(20, 20, 20, 20);
+    cardLayout->setSpacing(16);
 
     QVBoxLayout* textLayout = new QVBoxLayout();
     textLayout->setSpacing(4);
+    textLayout->setAlignment(Qt::AlignVCenter);
 
     QLabel* valLbl = new QLabel(value, card);
     valLbl->setObjectName("MetricVal");
@@ -100,13 +148,17 @@ QWidget* DashboardView::createMetricCard(const QString& title, const QString& va
     textLayout->addWidget(valLbl);
     textLayout->addWidget(titleLbl);
 
-    QLabel* iconLbl = new QLabel(iconSymbol, card);
-    iconLbl->setStyleSheet("font-size: 32px;");
+    QLabel* iconLbl = new QLabel(card);
+    QIcon icon = getColoredIcon(iconPath, QColor("#F97316"));
+    if (!icon.isNull()) {
+        iconLbl->setPixmap(icon.pixmap(32, 32));
+    }
+    iconLbl->setFixedSize(48, 48);
     iconLbl->setAlignment(Qt::AlignCenter);
 
     cardLayout->addLayout(textLayout);
     cardLayout->addStretch();
-    cardLayout->addWidget(iconLbl);
+    cardLayout->addWidget(iconLbl, 0, Qt::AlignVCenter);
 
     return card;
 }
