@@ -107,7 +107,7 @@ void Sidebar::setupUI() {
     QIcon logoutIcon = getColoredIcon("Logout.png", QColor("#F97316"));
     if (!logoutIcon.isNull()) {
         logoutBtn->setIcon(logoutIcon);
-        logoutBtn->setIconSize(QSize(20, 20));
+        logoutBtn->setIconSize(QSize(18, 18));
     }
     layout->addWidget(logoutBtn);
 
@@ -133,7 +133,7 @@ QPushButton* Sidebar::createNavButton(const QString& text, const QString& iconPa
     QIcon icon = getColoredIcon(iconPath, QColor("#F97316"));
     if (!icon.isNull()) {
         btn->setIcon(icon);
-        btn->setIconSize(QSize(20, 20));
+        btn->setIconSize(QSize(18, 18));
     }
 
     m_btnGroup->addButton(btn, pageId);

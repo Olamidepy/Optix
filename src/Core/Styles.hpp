@@ -46,10 +46,11 @@ QPushButton#SidebarBtn {
     color: @text_muted;
     border: none;
     border-radius: 6px;
-    padding: 12px 16px;
+    padding: 9px 12px;
     text-align: left;
     font-weight: 500;
-    margin: 4px 10px;
+    margin: 3px 8px;
+    font-size: 12px;
 }
 
 QPushButton#SidebarBtn:hover {
@@ -258,6 +259,31 @@ QScrollBar::handle:vertical:hover {
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     border: none;
     background: none;
+}
+
+/* QMessageBox styling */
+QMessageBox {
+    background-color: @card;
+}
+
+QMessageBox QLabel {
+    color: @text_main;
+}
+
+QMessageBox QPushButton {
+    background-color: @bg;
+    color: @text_main;
+    border: 1px solid @border;
+    border-radius: 6px;
+    padding: 6px 16px;
+    min-width: 75px;
+    font-weight: 500;
+}
+
+QMessageBox QPushButton:hover {
+    background-color: @primary;
+    color: #FFFFFF;
+    border: 1px solid @primary;
 }
 )";
 

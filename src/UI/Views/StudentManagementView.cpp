@@ -221,7 +221,7 @@ void StudentManagementView::setupUI() {
     editBtn->setObjectName("SecondaryBtn");
     QPushButton* deleteBtn = new QPushButton("Delete Selected", this);
     deleteBtn->setObjectName("SecondaryBtn");
-    QPushButton* recordFaceBtn = new QPushButton("📸 Register Face Template", this);
+    QPushButton* recordFaceBtn = new QPushButton("Register Face Template", this);
     recordFaceBtn->setObjectName("PrimaryBtn");
 
     tableActionLayout->addWidget(editBtn);

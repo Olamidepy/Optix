@@ -6,8 +6,62 @@
 #include <QSlider>
 #include <QFormLayout>
 #include <QPushButton>
+#include <QIcon>
+#include <QPixmap>
+#include <QPainter>
+#include <QFile>
+#include <QDir>
+#include <QCoreApplication>
+#include <iostream>
 
 namespace Optix::UI::Views {
+
+static QString resolveAssetPath(const QString& relativePath) {
+    QStringList searchPaths = {
+        relativePath,
+        "Public/" + relativePath,
+        "../Public/" + relativePath,
+        "../../Public/" + relativePath,
+        "../../../Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/../Public/" + relativePath,
+        QCoreApplication::applicationDirPath() + "/../../Public/" + relativePath
+    };
+    for (const auto& path : searchPaths) {
+        if (QFile::exists(path)) {
+            return QDir::cleanPath(path);
+        }
+    }
+    return relativePath; // Fallback
+}
+
+static QIcon getToggleIcon(bool checked) {
+    QString resolved = resolveAssetPath("Toggle.png");
+    QPixmap pixmap(resolved);
+    if (pixmap.isNull()) {
+        std::cerr << "Optix UI: Failed to load Toggle.png (resolved to: " << resolved.toStdString() << ")" << std::endl;
+        return QIcon();
+    }
+    
+    // If checked (Dark Mode), mirror the toggle switch horizontally
+    if (checked) {
+        pixmap = pixmap.transformed(QTransform().scale(-1, 1));
+    }
+    
+    // Tint color: Orange (#F97316) for Dark Mode (active), Grey (#9CA3AF) for Light Mode (inactive)
+    QColor tintColor = checked ? QColor("#F97316") : QColor("#9CA3AF");
+    
+    QPixmap coloredPixmap(pixmap.size());
+    coloredPixmap.fill(Qt::transparent);
+    
+    QPainter painter(&coloredPixmap);
+    painter.drawPixmap(0, 0, pixmap);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    painter.fillRect(coloredPixmap.rect(), tintColor);
+    painter.end();
+    
+    return QIcon(coloredPixmap);
+}
 
 SettingsView::SettingsView(std::shared_ptr<Application::AppContext> context, QWidget* parent)
     : QWidget(parent), m_context(std::move(context)) {
@@ -27,6 +81,7 @@ void SettingsView::setupUI() {
     titleLbl->setObjectName("HeaderTitle");
     QLabel* subtitleLbl = new QLabel("Configure system parameters, themes, and camera devices", this);
     subtitleLbl->setObjectName("HeaderSubtitle");
+
     headerLayout->addWidget(titleLbl);
     headerLayout->addWidget(subtitleLbl);
     mainLayout->addLayout(headerLayout);
@@ -42,7 +97,7 @@ void SettingsView::setupUI() {
     // 1. Theme Configuration Row
     QHBoxLayout* themeRow = new QHBoxLayout();
     m_themeToggleBtn = new QPushButton(settingsCard);
-    m_themeToggleBtn->setObjectName("SecondaryBtn");
+    m_themeToggleBtn->setCheckable(true);
     m_themeToggleBtn->setCursor(Qt::PointingHandCursor);
     m_themeToggleBtn->setFixedWidth(160);
     
@@ -136,11 +191,20 @@ void SettingsView::handleThresholdChanged(int val) {
 }
 
 void SettingsView::updateThemeBtnText() {
-    if (m_context->themeManager->isDarkMode()) {
-        m_themeToggleBtn->setText("☀️ Switch to Light");
-    } else {
-        m_themeToggleBtn->setText("🌙 Switch to Dark");
+    bool dark = m_context->themeManager->isDarkMode();
+    m_themeToggleBtn->setChecked(dark);
+    
+    QIcon icon = getToggleIcon(dark);
+    if (!icon.isNull()) {
+        m_themeToggleBtn->setIcon(icon);
+        m_themeToggleBtn->setIconSize(QSize(40, 22));
     }
+    
+    m_themeToggleBtn->setText(dark ? "  Dark Mode" : "  Light Mode");
+    m_themeToggleBtn->setStyleSheet(
+        QString("QPushButton { background: transparent; border: none; text-align: left; padding: 4px; font-weight: bold; color: %1; }")
+        .arg(dark ? "#F3F4F6" : "#1F2937")
+    );
 }
 
 } // namespace Optix::UI::Views
