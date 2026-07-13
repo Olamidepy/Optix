@@ -1,6 +1,12 @@
 #include "FaceService.hpp"
+
+#ifdef OPTIX_MOCK_BACKEND
+#include "Core/MockBackend.hpp"
+#else
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
+#endif
+
 #include <filesystem>
 #include <iostream>
 

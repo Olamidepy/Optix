@@ -1,9 +1,65 @@
 #include "LBPHFaceRecognizer.hpp"
+
+#ifdef OPTIX_MOCK_BACKEND
+#include "Core/MockBackend.hpp"
+#include "Models/Student.hpp"
+#else
 #include <opencv2/face.hpp>
 #include <opencv2/core.hpp>
+#endif
+
 #include <iostream>
 
 namespace Optix::FaceRecognition {
+
+#ifdef OPTIX_MOCK_BACKEND
+
+LBPHFaceRecognizer::LBPHFaceRecognizer() {
+}
+
+bool LBPHFaceRecognizer::train(
+    const std::vector<std::string>& student_ids, 
+    const std::vector<std::vector<cv::Mat>>& face_images
+) {
+    (void)student_ids;
+    (void)face_images;
+    return true;
+}
+
+std::string LBPHFaceRecognizer::predict(const cv::Mat& face_image, double& out_confidence) {
+    (void)face_image;
+    out_confidence = 92.4; // Return mock confidence
+    
+    // Return the ID of the first student who has a registered face
+    for (const auto& s : s_mockStudents) {
+        if (s.face_registered) {
+            return s.student_id;
+        }
+    }
+    return "";
+}
+
+bool LBPHFaceRecognizer::save(const std::string& path) const {
+    (void)path;
+    return true;
+}
+
+bool LBPHFaceRecognizer::load(const std::string& path) {
+    (void)path;
+    return true;
+}
+
+bool LBPHFaceRecognizer::saveMetadata(const std::string& path) const {
+    (void)path;
+    return true;
+}
+
+bool LBPHFaceRecognizer::loadMetadata(const std::string& path) {
+    (void)path;
+    return true;
+}
+
+#else
 
 LBPHFaceRecognizer::LBPHFaceRecognizer() {
     // Instantiate OpenCV LBPH Face Recognizer
@@ -139,5 +195,7 @@ bool LBPHFaceRecognizer::loadMetadata(const std::string& path) {
         return false;
     }
 }
+
+#endif
 
 } // namespace Optix::FaceRecognition

@@ -114,8 +114,8 @@ void StudentFormDialog::setStudentToEdit(const std::string& student_id) {
     }
 }
 
-Models::Student StudentFormDialog::getStudentData() const {
-    Models::Student s;
+Optix::Models::Student StudentFormDialog::getStudentData() const {
+    Optix::Models::Student s;
     s.student_id = m_idEdit->text().trimmed().toStdString();
     s.matric_number = m_matricEdit->text().trimmed().toStdString();
     s.full_name = m_nameEdit->text().trimmed().toStdString();

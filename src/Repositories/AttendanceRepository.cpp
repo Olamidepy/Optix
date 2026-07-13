@@ -1,5 +1,20 @@
 #include "AttendanceRepository.hpp"
+
+#ifdef OPTIX_MOCK_BACKEND
+#include "Core/MockBackend.hpp"
+#include "Models/Attendance.hpp"
+#include "Models/Student.hpp"
+#include <algorithm>
+
+// Define global in-memory attendance database
+std::vector<Optix::Models::Attendance> s_mockAttendance = {
+    {1, "1", "2026-07-13", "2026-07-13 10:30:15", "Present"},
+    {2, "3", "2026-07-13", "2026-07-13 11:15:22", "Present"}
+};
+#else
 #include <sqlite3.h>
+#endif
+
 #include <iostream>
 
 namespace Optix::Repositories {
@@ -9,6 +24,21 @@ AttendanceRepository::AttendanceRepository(std::shared_ptr<IDatabase> db)
 }
 
 bool AttendanceRepository::recordAttendance(const std::string& student_id, const std::string& date, const std::string& status) {
+#ifdef OPTIX_MOCK_BACKEND
+    if (hasRecord(student_id, date)) {
+        return false;
+    }
+
+    Optix::Models::Attendance log;
+    log.id = static_cast<int>(s_mockAttendance.size() + 1);
+    log.student_id = student_id;
+    log.date = date;
+    log.timestamp = date + " 12:00:00";
+    log.status = status;
+
+    s_mockAttendance.push_back(log);
+    return true;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return false;
 
@@ -27,9 +57,18 @@ bool AttendanceRepository::recordAttendance(const std::string& student_id, const
     sqlite3_finalize(stmt);
 
     return rc == SQLITE_DONE;
+#endif
 }
 
 bool AttendanceRepository::hasRecord(const std::string& student_id, const std::string& date) {
+#ifdef OPTIX_MOCK_BACKEND
+    for (const auto& log : s_mockAttendance) {
+        if (log.student_id == student_id && log.date == date) {
+            return true;
+        }
+    }
+    return false;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return false;
 
@@ -48,8 +87,10 @@ bool AttendanceRepository::hasRecord(const std::string& student_id, const std::s
     }
     sqlite3_finalize(stmt);
     return count > 0;
+#endif
 }
 
+#ifndef OPTIX_MOCK_BACKEND
 static Models::Attendance parseAttendance(sqlite3_stmt* stmt) {
     Models::Attendance a;
     a.id = sqlite3_column_int(stmt, 0);
@@ -59,8 +100,18 @@ static Models::Attendance parseAttendance(sqlite3_stmt* stmt) {
     a.status = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
     return a;
 }
+#endif
 
 std::vector<Models::Attendance> AttendanceRepository::getDailyAttendance(const std::string& date) {
+#ifdef OPTIX_MOCK_BACKEND
+    std::vector<Models::Attendance> list;
+    for (const auto& log : s_mockAttendance) {
+        if (log.date == date) {
+            list.push_back(log);
+        }
+    }
+    return list;
+#else
     std::vector<Models::Attendance> list;
     sqlite3* handle = m_db->getHandle();
     if (!handle) return list;
@@ -78,9 +129,19 @@ std::vector<Models::Attendance> AttendanceRepository::getDailyAttendance(const s
     }
     sqlite3_finalize(stmt);
     return list;
+#endif
 }
 
 std::vector<Models::Attendance> AttendanceRepository::getStudentAttendanceHistory(const std::string& student_id) {
+#ifdef OPTIX_MOCK_BACKEND
+    std::vector<Models::Attendance> list;
+    for (const auto& log : s_mockAttendance) {
+        if (log.student_id == student_id) {
+            list.push_back(log);
+        }
+    }
+    return list;
+#else
     std::vector<Models::Attendance> list;
     sqlite3* handle = m_db->getHandle();
     if (!handle) return list;
@@ -98,9 +159,13 @@ std::vector<Models::Attendance> AttendanceRepository::getStudentAttendanceHistor
     }
     sqlite3_finalize(stmt);
     return list;
+#endif
 }
 
 std::vector<Models::Attendance> AttendanceRepository::getAllAttendance() {
+#ifdef OPTIX_MOCK_BACKEND
+    return s_mockAttendance;
+#else
     std::vector<Models::Attendance> list;
     sqlite3* handle = m_db->getHandle();
     if (!handle) return list;
@@ -116,9 +181,19 @@ std::vector<Models::Attendance> AttendanceRepository::getAllAttendance() {
     }
     sqlite3_finalize(stmt);
     return list;
+#endif
 }
 
 int AttendanceRepository::getPresentTodayCount(const std::string& date) {
+#ifdef OPTIX_MOCK_BACKEND
+    int count = 0;
+    for (const auto& log : s_mockAttendance) {
+        if (log.date == date && (log.status == "Present" || log.status == "PRESENT")) {
+            count++;
+        }
+    }
+    return count;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return 0;
 
@@ -136,6 +211,7 @@ int AttendanceRepository::getPresentTodayCount(const std::string& date) {
     }
     sqlite3_finalize(stmt);
     return count;
+#endif
 }
 
 } // namespace Optix::Repositories

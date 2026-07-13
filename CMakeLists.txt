@@ -19,10 +19,17 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 find_package(Qt6 COMPONENTS Widgets Core Gui REQUIRED)
 
 # 2. OpenCV (core, imgproc, imgcodecs, videoio, objdetect, face)
-find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs videoio objdetect)
+find_package(OpenCV COMPONENTS core imgproc imgcodecs videoio objdetect)
 
 # 3. SQLite3
-find_package(SQLite3 REQUIRED)
+find_package(SQLite3)
+
+if(OpenCV_FOUND AND SQLite3_FOUND)
+    message(STATUS "Optix: Real backend enabled.")
+else()
+    message(WARNING "Optix: OpenCV or SQLite3 not found. Building with MOCK BACKENDS for UI preview.")
+    add_compile_definitions(OPTIX_MOCK_BACKEND)
+endif()
 
 # Define compile options
 if(MSVC)

@@ -1,5 +1,21 @@
 #include "StudentRepository.hpp"
+
+#ifdef OPTIX_MOCK_BACKEND
+#include "Core/MockBackend.hpp"
+#include "Models/Student.hpp"
+#include <algorithm>
+
+// Define global in-memory students database
+std::vector<Optix::Models::Student> s_mockStudents = {
+    {"1", "CPE/23/4824", "Opeoluwa Mustapha", "Computer Engineering", 300, "Male", "opeoluwa@example.com", "08012345678", true, "2026-07-13 10:00:00"},
+    {"2", "EEE/2021/001", "John Doe", "EEE", 300, "Male", "johndoe@example.com", "08012345678", true, "2026-07-13 10:00:00"},
+    {"3", "MEE/2021/045", "Jane Smith", "MEE", 400, "Female", "janesmith@example.com", "08098765432", false, "2026-07-13 10:05:00"}
+};
+
+#else
 #include <sqlite3.h>
+#endif
+
 #include <iostream>
 
 namespace Optix::Repositories {
@@ -9,6 +25,14 @@ StudentRepository::StudentRepository(std::shared_ptr<IDatabase> db)
 }
 
 bool StudentRepository::addStudent(const Models::Student& s) {
+#ifdef OPTIX_MOCK_BACKEND
+    auto copy = s;
+    if (copy.student_id.empty()) {
+        copy.student_id = std::to_string(s_mockStudents.size() + 1);
+    }
+    s_mockStudents.push_back(copy);
+    return true;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return false;
 
@@ -45,9 +69,19 @@ bool StudentRepository::addStudent(const Models::Student& s) {
     sqlite3_finalize(stmt);
 
     return rc == SQLITE_DONE;
+#endif
 }
 
 bool StudentRepository::updateStudent(const Models::Student& s) {
+#ifdef OPTIX_MOCK_BACKEND
+    for (auto& st : s_mockStudents) {
+        if (st.student_id == s.student_id) {
+            st = s;
+            return true;
+        }
+    }
+    return false;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return false;
 
@@ -84,9 +118,19 @@ bool StudentRepository::updateStudent(const Models::Student& s) {
     sqlite3_finalize(stmt);
 
     return rc == SQLITE_DONE;
+#endif
 }
 
 bool StudentRepository::deleteStudent(const std::string& student_id) {
+#ifdef OPTIX_MOCK_BACKEND
+    auto it = std::remove_if(s_mockStudents.begin(), s_mockStudents.end(),
+        [&student_id](const auto& s) { return s.student_id == student_id; });
+    if (it != s_mockStudents.end()) {
+        s_mockStudents.erase(it, s_mockStudents.end());
+        return true;
+    }
+    return false;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return false;
 
@@ -100,8 +144,10 @@ bool StudentRepository::deleteStudent(const std::string& student_id) {
     sqlite3_finalize(stmt);
 
     return rc == SQLITE_DONE;
+#endif
 }
 
+#ifndef OPTIX_MOCK_BACKEND
 static Models::Student parseStudent(sqlite3_stmt* stmt) {
     Models::Student s;
     s.student_id = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
@@ -122,8 +168,15 @@ static Models::Student parseStudent(sqlite3_stmt* stmt) {
     s.created_at = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
     return s;
 }
+#endif
 
 std::optional<Models::Student> StudentRepository::getStudentById(const std::string& student_id) {
+#ifdef OPTIX_MOCK_BACKEND
+    for (const auto& st : s_mockStudents) {
+        if (st.student_id == student_id) return st;
+    }
+    return std::nullopt;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return std::nullopt;
 
@@ -143,9 +196,16 @@ std::optional<Models::Student> StudentRepository::getStudentById(const std::stri
     }
     sqlite3_finalize(stmt);
     return student;
+#endif
 }
 
 std::optional<Models::Student> StudentRepository::getStudentByMatric(const std::string& matric_number) {
+#ifdef OPTIX_MOCK_BACKEND
+    for (const auto& st : s_mockStudents) {
+        if (st.matric_number == matric_number) return st;
+    }
+    return std::nullopt;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return std::nullopt;
 
@@ -165,9 +225,13 @@ std::optional<Models::Student> StudentRepository::getStudentByMatric(const std::
     }
     sqlite3_finalize(stmt);
     return student;
+#endif
 }
 
 std::vector<Models::Student> StudentRepository::getAllStudents() {
+#ifdef OPTIX_MOCK_BACKEND
+    return s_mockStudents;
+#else
     std::vector<Models::Student> list;
     sqlite3* handle = m_db->getHandle();
     if (!handle) return list;
@@ -186,9 +250,23 @@ std::vector<Models::Student> StudentRepository::getAllStudents() {
     
     sqlite3_finalize(stmt);
     return list;
+#endif
 }
 
 std::vector<Models::Student> StudentRepository::searchStudents(const std::string& search_query, const std::string& deptFilter) {
+#ifdef OPTIX_MOCK_BACKEND
+    std::vector<Models::Student> list;
+    for (const auto& st : s_mockStudents) {
+        bool matchSearch = search_query.empty() || 
+                           (st.full_name.find(search_query) != std::string::npos) || 
+                           (st.matric_number.find(search_query) != std::string::npos);
+        bool matchDept = deptFilter.empty() || (st.department == deptFilter);
+        if (matchSearch && matchDept) {
+            list.push_back(st);
+        }
+    }
+    return list;
+#else
     std::vector<Models::Student> list;
     sqlite3* handle = m_db->getHandle();
     if (!handle) return list;
@@ -227,9 +305,13 @@ std::vector<Models::Student> StudentRepository::searchStudents(const std::string
     
     sqlite3_finalize(stmt);
     return list;
+#endif
 }
 
 int StudentRepository::getStudentCount() {
+#ifdef OPTIX_MOCK_BACKEND
+    return static_cast<int>(s_mockStudents.size());
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return 0;
 
@@ -244,9 +326,19 @@ int StudentRepository::getStudentCount() {
     }
     sqlite3_finalize(stmt);
     return count;
+#endif
 }
 
 bool StudentRepository::setFaceRegistered(const std::string& student_id, bool registered) {
+#ifdef OPTIX_MOCK_BACKEND
+    for (auto& st : s_mockStudents) {
+        if (st.student_id == student_id) {
+            st.face_registered = registered;
+            return true;
+        }
+    }
+    return false;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) return false;
 
@@ -262,6 +354,7 @@ bool StudentRepository::setFaceRegistered(const std::string& student_id, bool re
     sqlite3_finalize(stmt);
 
     return rc == SQLITE_DONE;
+#endif
 }
 
 } // namespace Optix::Repositories

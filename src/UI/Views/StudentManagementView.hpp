@@ -5,7 +5,9 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QDialog>
+#include <QLabel>
 #include <memory>
+#include "Models/Student.hpp"
 
 namespace Optix::Application {
 class AppContext;
@@ -24,7 +26,7 @@ public:
     void setStudentToEdit(const std::string& student_id);
 
     // Get the filled student struct
-    Models::Student getStudentData() const;
+    Optix::Models::Student getStudentData() const;
 
 private slots:
     void handleSave();

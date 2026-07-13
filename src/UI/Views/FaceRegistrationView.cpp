@@ -5,6 +5,8 @@
 #include <QFrame>
 #include <QMessageBox>
 #include <QProgressBar>
+#include <QCoreApplication>
+#include <QThread>
 
 namespace Optix::UI::Views {
 
@@ -134,7 +136,7 @@ void FaceRegistrationView::toggleCamera() {
 }
 
 void FaceRegistrationView::startCapture() {
-    if (m_targetStudentId.empty()) {
+    if (m_targetStudentId.isEmpty()) {
         QMessageBox::warning(this, "Face Capture", "Please select a student from the Students list first.");
         return;
     }
@@ -185,7 +187,7 @@ void FaceRegistrationView::triggerModelTraining() {
 }
 
 void FaceRegistrationView::updateButtons() {
-    m_captureBtn->setEnabled(m_isCameraRunning && !m_targetStudentId.empty());
+    m_captureBtn->setEnabled(m_isCameraRunning && !m_targetStudentId.isEmpty());
 }
 
 } // namespace Optix::UI::Views

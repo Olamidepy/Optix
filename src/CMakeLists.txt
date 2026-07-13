@@ -70,21 +70,27 @@ add_executable(Optix ${OPTIX_SOURCES})
 # Target Header Include Directories
 target_include_directories(Optix PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${OpenCV_INCLUDE_DIRS}
 )
+if(OpenCV_FOUND)
+    target_include_directories(Optix PRIVATE ${OpenCV_INCLUDE_DIRS})
+endif()
 
 # Target Link Libraries
 target_link_libraries(Optix PRIVATE
     Qt6::Widgets
-    ${OpenCV_LIBS}
 )
+if(OpenCV_FOUND)
+    target_link_libraries(Optix PRIVATE ${OpenCV_LIBS})
+endif()
 
 # Link SQLite3 target or variables
-if(TARGET SQLite::SQLite3)
-    target_link_libraries(Optix PRIVATE SQLite::SQLite3)
-else()
-    target_include_directories(Optix PRIVATE ${SQLite3_INCLUDE_DIRS})
-    target_link_libraries(Optix PRIVATE ${SQLite3_LIBRARIES})
+if(SQLite3_FOUND)
+    if(TARGET SQLite::SQLite3)
+        target_link_libraries(Optix PRIVATE SQLite::SQLite3)
+    else()
+        target_include_directories(Optix PRIVATE ${SQLite3_INCLUDE_DIRS})
+        target_link_libraries(Optix PRIVATE ${SQLite3_LIBRARIES})
+    endif()
 endif()
 
 # Platform-specific configurations

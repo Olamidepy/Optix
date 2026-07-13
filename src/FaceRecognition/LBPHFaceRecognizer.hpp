@@ -1,13 +1,16 @@
 #pragma once
 #include "IFaceRecognizer.hpp"
+#ifdef OPTIX_MOCK_BACKEND
+#include "Core/MockBackend.hpp"
+#else
 #include <opencv2/core.hpp>
-#include <map>
-#include <string>
-#include <vector>
-
 namespace cv::face {
 class FaceRecognizer;
 }
+#endif
+#include <map>
+#include <string>
+#include <vector>
 
 namespace Optix::FaceRecognition {
 

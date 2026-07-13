@@ -1,5 +1,11 @@
 #include "UserRepository.hpp"
+
+#ifdef OPTIX_MOCK_BACKEND
+#include "Core/MockBackend.hpp"
+#else
 #include <sqlite3.h>
+#endif
+
 #include <iostream>
 
 namespace Optix::Repositories {
@@ -9,6 +15,13 @@ UserRepository::UserRepository(std::shared_ptr<IDatabase> db)
 }
 
 bool UserRepository::validateUser(const std::string& username, const std::string& password_hash, Models::User& outUser) {
+#ifdef OPTIX_MOCK_BACKEND
+    outUser.id = 1;
+    outUser.username = username;
+    outUser.password_hash = password_hash;
+    outUser.created_at = "2026-07-13 00:00:00";
+    return true;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) {
         return false;
@@ -36,9 +49,15 @@ bool UserRepository::validateUser(const std::string& username, const std::string
 
     sqlite3_finalize(stmt);
     return success;
+#endif
 }
 
 bool UserRepository::createUser(const std::string& username, const std::string& password_hash) {
+#ifdef OPTIX_MOCK_BACKEND
+    (void)username;
+    (void)password_hash;
+    return true;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) {
         return false;
@@ -58,9 +77,13 @@ bool UserRepository::createUser(const std::string& username, const std::string& 
     sqlite3_finalize(stmt);
 
     return rc == SQLITE_DONE;
+#endif
 }
 
 bool UserRepository::hasUsers() {
+#ifdef OPTIX_MOCK_BACKEND
+    return true;
+#else
     sqlite3* handle = m_db->getHandle();
     if (!handle) {
         return false;
@@ -80,6 +103,7 @@ bool UserRepository::hasUsers() {
 
     sqlite3_finalize(stmt);
     return count > 0;
+#endif
 }
 
 } // namespace Optix::Repositories

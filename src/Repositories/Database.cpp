@@ -1,6 +1,12 @@
 #include "Database.hpp"
 #include "Utilities/Crypto.hpp"
+
+#ifdef OPTIX_MOCK_BACKEND
+#include "Core/MockBackend.hpp"
+#else
 #include <sqlite3.h>
+#endif
+
 #include <iostream>
 
 namespace Optix::Repositories {
@@ -13,6 +19,11 @@ Database::~Database() {
 }
 
 bool Database::open(const std::string& path) {
+#ifdef OPTIX_MOCK_BACKEND
+    (void)path;
+    std::cout << "Optix Database: Running in MOCK BACKEND mode. In-memory data initialized." << std::endl;
+    return true;
+#else
     close(); // Close any active connection
     
     int rc = sqlite3_open(path.c_str(), &m_db);
@@ -26,13 +37,16 @@ bool Database::open(const std::string& path) {
     execute("PRAGMA foreign_keys = ON;");
     
     return initializeSchema();
+#endif
 }
 
 void Database::close() {
+#ifndef OPTIX_MOCK_BACKEND
     if (m_db) {
         sqlite3_close(m_db);
         m_db = nullptr;
     }
+#endif
 }
 
 sqlite3* Database::getHandle() const {
@@ -40,6 +54,10 @@ sqlite3* Database::getHandle() const {
 }
 
 bool Database::execute(const std::string& sql) {
+#ifdef OPTIX_MOCK_BACKEND
+    (void)sql;
+    return true;
+#else
     if (!m_db) {
         return false;
     }
@@ -52,9 +70,13 @@ bool Database::execute(const std::string& sql) {
         return false;
     }
     return true;
+#endif
 }
 
 bool Database::initializeSchema() {
+#ifdef OPTIX_MOCK_BACKEND
+    return true;
+#else
     // 1. Create Users Table
     const std::string createUsersTable = 
         "CREATE TABLE IF NOT EXISTS Users ("
@@ -124,6 +146,7 @@ bool Database::initializeSchema() {
     }
 
     return true;
+#endif
 }
 
 } // namespace Optix::Repositories
