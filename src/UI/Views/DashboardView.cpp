@@ -120,17 +120,27 @@ QWidget* DashboardView::createMetricCard(const QString& title, const QString& va
     QFrame* card = new QFrame(parent);
     card->setObjectName("MetricCard");
 
-    QHBoxLayout* cardLayout = new QHBoxLayout(card);
+    QVBoxLayout* cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(20, 20, 20, 20);
-    cardLayout->setSpacing(16);
+    cardLayout->setSpacing(8);
 
-    QVBoxLayout* textLayout = new QVBoxLayout();
-    textLayout->setSpacing(4);
-    textLayout->setAlignment(Qt::AlignVCenter);
-
+    QHBoxLayout* topLayout = new QHBoxLayout();
+    
     QLabel* valLbl = new QLabel(value, card);
     valLbl->setObjectName("MetricVal");
     
+    QLabel* iconLbl = new QLabel(card);
+    QIcon icon = getColoredIcon(iconPath, QColor("#F97316"));
+    if (!icon.isNull()) {
+        iconLbl->setPixmap(icon.pixmap(20, 20)); // Reduced size to 20x20
+    }
+    iconLbl->setFixedSize(24, 24);
+    iconLbl->setAlignment(Qt::AlignTop | Qt::AlignRight);
+
+    topLayout->addWidget(valLbl);
+    topLayout->addStretch();
+    topLayout->addWidget(iconLbl, 0, Qt::AlignTop | Qt::AlignRight);
+
     QLabel* titleLbl = new QLabel(title, card);
     titleLbl->setObjectName("MetricLbl");
 
@@ -145,20 +155,8 @@ QWidget* DashboardView::createMetricCard(const QString& title, const QString& va
         m_accuracyLbl = valLbl;
     }
 
-    textLayout->addWidget(valLbl);
-    textLayout->addWidget(titleLbl);
-
-    QLabel* iconLbl = new QLabel(card);
-    QIcon icon = getColoredIcon(iconPath, QColor("#F97316"));
-    if (!icon.isNull()) {
-        iconLbl->setPixmap(icon.pixmap(32, 32));
-    }
-    iconLbl->setFixedSize(48, 48);
-    iconLbl->setAlignment(Qt::AlignCenter);
-
-    cardLayout->addLayout(textLayout);
-    cardLayout->addStretch();
-    cardLayout->addWidget(iconLbl, 0, Qt::AlignVCenter);
+    cardLayout->addLayout(topLayout);
+    cardLayout->addWidget(titleLbl);
 
     return card;
 }
