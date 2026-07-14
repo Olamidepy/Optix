@@ -10,6 +10,9 @@ class AppContext;
 
 namespace Optix::UI::Views {
 
+class DonutChart;
+class BarChart;
+
 class DashboardView : public QWidget {
     Q_OBJECT
 
@@ -33,6 +36,8 @@ private:
     QLabel* m_accuracyLbl{nullptr};
 
     QTableWidget* m_recentActivityTable{nullptr};
+    DonutChart* m_donutChart{nullptr};
+    BarChart* m_barChart{nullptr};
 };
 
 } // namespace Optix::UI::Views
