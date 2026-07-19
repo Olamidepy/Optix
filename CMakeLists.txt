@@ -19,6 +19,15 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 find_package(Qt6 COMPONENTS Widgets Core Gui REQUIRED)
 
 # 2. OpenCV (core, imgproc, imgcodecs, videoio, objdetect, face)
+if(NOT OpenCV_DIR)
+    if(EXISTS "C:/OpenCV-MinGW-Build-OpenCV-4.5.0-with-contrib/x64/mingw/lib")
+        set(OpenCV_DIR "C:/OpenCV-MinGW-Build-OpenCV-4.5.0-with-contrib/x64/mingw/lib" CACHE PATH "Path to OpenCV build directory")
+    elseif(EXISTS "C:/Users/ACER/Downloads/OpenCV-MinGW-Build-OpenCV-4.5.0-with-contrib/x64/mingw/lib")
+        set(OpenCV_DIR "C:/Users/ACER/Downloads/OpenCV-MinGW-Build-OpenCV-4.5.0-with-contrib/x64/mingw/lib" CACHE PATH "Path to OpenCV build directory")
+    else()
+        set(OpenCV_DIR "C:/opencv-4.5.0-mingw/x64/mingw/lib" CACHE PATH "Path to OpenCV build directory")
+    endif()
+endif()
 find_package(OpenCV COMPONENTS core imgproc imgcodecs videoio objdetect)
 
 # 3. SQLite3
