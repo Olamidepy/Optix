@@ -21,14 +21,13 @@ StudentFormDialog::StudentFormDialog(std::shared_ptr<Application::AppContext> co
 void StudentFormDialog::setupUI() {
     setWindowTitle("Student Registration");
     setMinimumWidth(420);
-    setStyleSheet("background-color: #FAFAFA;");
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(16);
     mainLayout->setContentsMargins(24, 24, 24, 24);
 
     QLabel* headerLbl = new QLabel("Register Student Profile", this);
-    headerLbl->setStyleSheet("font-family: 'Space Grotesk'; font-size: 18px; font-weight: bold; color: #1F2937;");
+    headerLbl->setObjectName("HeaderTitle");
     mainLayout->addWidget(headerLbl);
 
     QFormLayout* form = new QFormLayout();

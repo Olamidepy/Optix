@@ -17,6 +17,16 @@ QMainWindow {
     background-color: @bg;
 }
 
+/* Dialogs & Popups */
+QDialog {
+    background-color: @card;
+    color: @text_main;
+}
+
+QDialog QLabel {
+    color: @text_main;
+}
+
 /* Sidebar Navigation */
 QFrame#SidebarFrame {
     background-color: @card;
@@ -148,6 +158,14 @@ QComboBox::drop-down {
     width: 30px;
 }
 
+QComboBox QAbstractItemView {
+    background-color: @card;
+    color: @text_main;
+    selection-background-color: @bg;
+    selection-color: @primary;
+    border: 1px solid @border;
+}
+
 /* Table styling */
 QTableWidget {
     background-color: @card;
@@ -160,6 +178,7 @@ QTableWidget {
 QTableWidget::item {
     padding: 12px;
     border-bottom: 1px solid @border;
+    color: @text_main;
 }
 
 QTableWidget::item:selected {
@@ -179,7 +198,7 @@ QHeaderView::section {
 /* Buttons */
 QPushButton#PrimaryBtn {
     background-color: @primary;
-    color: #FFFFFF;
+    color: #FFFFFF !important;
     border: none;
     border-radius: 8px;
     padding: 10px 20px;
@@ -188,10 +207,12 @@ QPushButton#PrimaryBtn {
 
 QPushButton#PrimaryBtn:hover {
     background-color: @primary_hover;
+    color: #FFFFFF !important;
 }
 
 QPushButton#PrimaryBtn:pressed {
     background-color: @primary;
+    color: #FFFFFF !important;
 }
 
 QPushButton#SecondaryBtn {
@@ -205,11 +226,12 @@ QPushButton#SecondaryBtn {
 
 QPushButton#SecondaryBtn:hover {
     background-color: @bg;
+    color: @text_main;
 }
 
 QPushButton#DestructiveBtn {
     background-color: #EF4444;
-    color: #FFFFFF;
+    color: #FFFFFF !important;
     border: none;
     border-radius: 8px;
     padding: 10px 20px;
@@ -218,6 +240,7 @@ QPushButton#DestructiveBtn {
 
 QPushButton#DestructiveBtn:hover {
     background-color: #DC2626;
+    color: #FFFFFF !important;
 }
 
 /* Login Panel Card */
@@ -282,7 +305,7 @@ QMessageBox QPushButton {
 
 QMessageBox QPushButton:hover {
     background-color: @primary;
-    color: #FFFFFF;
+    color: #FFFFFF !important;
     border: 1px solid @primary;
 }
 )";

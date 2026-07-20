@@ -34,9 +34,14 @@ find_package(OpenCV COMPONENTS core imgproc imgcodecs videoio objdetect face)
 
 # 3. SQLite3
 find_package(SQLite3)
+if(NOT SQLite3_FOUND AND EXISTS "C:/vcpkg/installed/x64-mingw-dynamic/include/sqlite3.h")
+    set(SQLite3_INCLUDE_DIRS "C:/vcpkg/installed/x64-mingw-dynamic/include" CACHE PATH "SQLite3 include dir")
+    set(SQLite3_LIBRARIES "C:/vcpkg/installed/x64-mingw-dynamic/lib/libsqlite3.dll.a" CACHE FILEPATH "SQLite3 library file")
+    set(SQLite3_FOUND TRUE)
+endif()
 
 if(OpenCV_FOUND AND SQLite3_FOUND)
-    message(STATUS "Optix: Real backend enabled.")
+    message(STATUS "Optix: Real hardware camera & OpenCV backend enabled.")
 else()
     message(WARNING "Optix: OpenCV or SQLite3 not found. Building with MOCK BACKENDS for UI preview.")
     add_compile_definitions(OPTIX_MOCK_BACKEND)

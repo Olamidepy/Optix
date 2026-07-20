@@ -211,12 +211,14 @@ protected:
         }
 
         int holeSize = donutSize * 0.6;
-        QRectF holeRect(donutRect.center().x() - holeSize/2, donutRect.center().y() - holeSize/2, holeSize, holeSize);
-        painter.setBrush(Qt::white);
-        painter.setPen(QPen(Qt::white, 2));
+        QRectF holeRect(donutRect.center().x() - holeSize / 2.0, donutRect.center().y() - holeSize / 2.0, holeSize, holeSize);
+        QColor cardBg = palette().color(QPalette::Base);
+        QColor textMain = palette().color(QPalette::Text);
+        painter.setBrush(cardBg);
+        painter.setPen(QPen(cardBg, 2));
         painter.drawEllipse(holeRect);
 
-        painter.setPen(QColor("#1F2937"));
+        painter.setPen(textMain);
         QFont font = painter.font();
         font.setFamily("Space Grotesk");
         font.setPixelSize(18);
@@ -449,7 +451,7 @@ void DashboardView::setupUI() {
     activityLayout->setSpacing(12);
 
     QLabel* activityTitle = new QLabel("Recent Attendance logs", container);
-    activityTitle->setStyleSheet("font-family: 'Space Grotesk'; font-size: 18px; font-weight: bold; color: #1F2937;");
+    activityTitle->setObjectName("CardTitle");
 
     m_recentActivityTable = new QTableWidget(container);
     m_recentActivityTable->setColumnCount(4);
@@ -466,7 +468,7 @@ void DashboardView::setupUI() {
 
     // Charts Section
     QLabel* chartsTitle = new QLabel("Attendance Analytics", container);
-    chartsTitle->setStyleSheet("font-family: 'Space Grotesk'; font-size: 18px; font-weight: bold; color: #1F2937; margin-top: 10px;");
+    chartsTitle->setObjectName("CardTitle");
     containerLayout->addWidget(chartsTitle);
 
     QHBoxLayout* chartsLayout = new QHBoxLayout();

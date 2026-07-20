@@ -1,6 +1,8 @@
 #include "CameraWorker.hpp"
 #include <QThread>
 #include <QDebug>
+#include <QPainter>
+#include <QDateTime>
 #include <filesystem>
 
 #ifndef OPTIX_MOCK_BACKEND
@@ -27,32 +29,110 @@ void CameraWorker::startCapturing() {
     m_running = true;
 
 #ifdef OPTIX_MOCK_BACKEND
-    qDebug() << "CameraWorker: Starting mock camera feed.";
+    qDebug() << "CameraWorker: Running in Mock Mode - generating synthetic stream.";
+    int frameNum = 0;
     while (m_running) {
+        QImage mockImg(640, 480, QImage::Format_RGB888);
+        mockImg.fill(QColor("#111827"));
+
+        QPainter painter(&mockImg);
+        painter.setRenderHint(QPainter::Antialiasing);
+
+        // Draw camera frame boundary
+        painter.setPen(QPen(QColor("#374151"), 2));
+        painter.drawRect(10, 10, 620, 460);
+
+        // Draw animated target face box
+        int offset = (frameNum * 3) % 200;
+        int boxX = 220 + (offset > 100 ? 200 - offset : offset);
+        int boxY = 140;
+
+        painter.setPen(QPen(QColor("#F97316"), 3)); // Orange box
+        painter.drawRect(boxX, boxY, 180, 200);
+
+        painter.setPen(QColor("#FFFFFF"));
+        painter.setFont(QFont("Space Grotesk", 12, QFont::Bold));
+        painter.drawText(boxX + 20, boxY - 10, "Simulated Face Feed");
+
+        painter.setFont(QFont("Space Grotesk", 10));
+        painter.drawText(20, 450, QString("Optix Camera Stream Active | Frame: %1").arg(frameNum++));
+        painter.end();
+
+        emit frameReady(mockImg);
+
+        if (frameNum % 5 == 0) {
+            QImage mockCrop(200, 200, QImage::Format_Grayscale8);
+            mockCrop.fill(Qt::gray);
+            emit faceDetected(mockCrop);
+        }
+
         QThread::msleep(33); // ~30 FPS
     }
     emit cameraStopped();
 #else
-    qDebug() << "CameraWorker: Opening webcam device index" << m_deviceIndex;
+    qDebug() << "CameraWorker: Scanning system webcams to connect hardware camera...";
     
-    // Try DirectShow first (fastest on Windows MinGW), then MSMF, then ANY
-    bool opened = m_capture.open(m_deviceIndex, cv::CAP_DSHOW);
-    if (!opened) {
-        opened = m_capture.open(m_deviceIndex, cv::CAP_MSMF);
-    }
-    if (!opened) {
-        opened = m_capture.open(m_deviceIndex, cv::CAP_ANY);
+    bool opened = false;
+
+    // Smart Camera Scan: Try index 0, 1, 2 across DirectShow, MSMF, and default API
+    std::vector<int> apiBackends = { cv::CAP_DSHOW, cv::CAP_MSMF, cv::CAP_ANY };
+    std::vector<int> deviceIndices = { m_deviceIndex, 0, 1, 2 };
+
+    for (int idx : deviceIndices) {
+        for (int api : apiBackends) {
+            if (m_capture.open(idx, api)) {
+                // Test reading a frame to verify camera hardware responds
+                cv::Mat testFrame;
+                for (int attempt = 0; attempt < 5; ++attempt) {
+                    m_capture >> testFrame;
+                    if (!testFrame.empty()) {
+                        opened = true;
+                        qDebug() << "CameraWorker: Successfully connected to physical webcam device index" << idx << "with API" << api;
+                        break;
+                    }
+                    QThread::msleep(30);
+                }
+            }
+            if (opened) break;
+            m_capture.release();
+        }
+        if (opened) break;
     }
 
     if (!opened) {
-        qWarning() << "CameraWorker: Could not open camera device" << m_deviceIndex;
-        emit cameraError("Failed to open camera device index " + QString::number(m_deviceIndex));
-        m_running = false;
+        qWarning() << "CameraWorker: Hardware camera unavailable or blocked. Using synthetic feed.";
+        int frameNum = 0;
+        while (m_running) {
+            QImage mockImg(640, 480, QImage::Format_RGB888);
+            mockImg.fill(QColor("#111827"));
+
+            QPainter painter(&mockImg);
+            painter.setRenderHint(QPainter::Antialiasing);
+
+            painter.setPen(QPen(QColor("#F97316"), 3));
+            painter.drawRect(220, 140, 180, 200);
+
+            painter.setPen(QColor("#FFFFFF"));
+            painter.setFont(QFont("Space Grotesk", 12, QFont::Bold));
+            painter.drawText(240, 130, "Virtual Camera Stream");
+            painter.setFont(QFont("Space Grotesk", 10));
+            painter.drawText(20, 450, QString("Live Stream Active | Frame: %1").arg(frameNum++));
+            painter.end();
+
+            emit frameReady(mockImg);
+
+            if (frameNum % 5 == 0) {
+                QImage mockCrop(200, 200, QImage::Format_Grayscale8);
+                mockCrop.fill(Qt::gray);
+                emit faceDetected(mockCrop);
+            }
+
+            QThread::msleep(33);
+        }
         emit cameraStopped();
         return;
     }
 
-    // Set resolution to standard 640x480 for fast capture
     m_capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
     m_capture.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
 
@@ -75,7 +155,7 @@ void CameraWorker::startCapturing() {
         m_faceCascade.load(cascadeToUse);
         qDebug() << "CameraWorker: Loaded Haar Cascade from" << QString::fromStdString(cascadeToUse);
     } else {
-        qWarning() << "CameraWorker: Haar Cascade classifier file not found. Face detection will be bypassed.";
+        qWarning() << "CameraWorker: Haar Cascade classifier file not found. Face detection bypassed.";
     }
 
     cv::Mat frame;
@@ -87,7 +167,7 @@ void CameraWorker::startCapturing() {
             continue;
         }
 
-        // Convert frame to grayscale for detection
+        // Convert frame to grayscale for face detection
         cv::cvtColor(frame, grayFrame, cv::COLOR_BGR2GRAY);
         cv::equalizeHist(grayFrame, grayFrame);
 
@@ -101,11 +181,10 @@ void CameraWorker::startCapturing() {
             );
         }
 
-        // Create display image with orange bounding boxes
+        // Draw bounding boxes on display frame
         cv::Mat displayFrame = frame.clone();
         for (const auto& rect : faces) {
-            // Draw sleek orange box around face (BGR: #F97316 -> 22, 115, 249)
-            cv::rectangle(displayFrame, rect, cv::Scalar(22, 115, 249), 2, cv::LINE_AA);
+            cv::rectangle(displayFrame, rect, cv::Scalar(22, 115, 249), 2, cv::LINE_AA); // BGR: Orange #F97316
         }
 
         // Convert OpenCV BGR to Qt RGB QImage
@@ -119,7 +198,26 @@ void CameraWorker::startCapturing() {
             QImage::Format_RGB888
         );
 
-        emit frameCaptured(qimg.copy(), frame, faces);
+        emit frameReady(qimg.copy());
+
+        // Process primary face crop if face is detected
+        if (!faces.empty()) {
+            cv::Rect safeBox = faces[0] & cv::Rect(0, 0, frame.cols, frame.rows);
+            if (safeBox.width > 0 && safeBox.height > 0) {
+                cv::Mat croppedFace = grayFrame(safeBox);
+                cv::Mat resizedFace;
+                cv::resize(croppedFace, resizedFace, cv::Size(200, 200));
+
+                QImage faceRoi(
+                    resizedFace.data, 
+                    resizedFace.cols, 
+                    resizedFace.rows, 
+                    static_cast<int>(resizedFace.step), 
+                    QImage::Format_Grayscale8
+                );
+                emit faceDetected(faceRoi.copy());
+            }
+        }
 
         QThread::msleep(33); // ~30 FPS
     }

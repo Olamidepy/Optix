@@ -7,10 +7,6 @@
 #include <memory>
 #include <vector>
 
-#ifndef OPTIX_MOCK_BACKEND
-#include <opencv2/core.hpp>
-#endif
-
 namespace Optix::Application {
 class AppContext;
 }
@@ -35,10 +31,6 @@ private slots:
     void toggleCamera();
     void startCapture();
     void triggerModelTraining();
-
-#ifndef OPTIX_MOCK_BACKEND
-    void onFrameCaptured(const QImage& displayImage, const cv::Mat& rawFrame, const std::vector<cv::Rect>& faceRects);
-#endif
 
 private:
     void setupUI();

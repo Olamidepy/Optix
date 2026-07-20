@@ -8,7 +8,6 @@
 #include <QProgressBar>
 #include <QCoreApplication>
 #include <QDebug>
-#include <QMetaType>
 
 #ifndef OPTIX_MOCK_BACKEND
 #include <opencv2/imgproc.hpp>
@@ -18,10 +17,6 @@ namespace Optix::UI::Views {
 
 FaceRegistrationView::FaceRegistrationView(std::shared_ptr<Application::AppContext> context, QWidget* parent)
     : QWidget(parent), m_context(std::move(context)) {
-#ifndef OPTIX_MOCK_BACKEND
-    qRegisterMetaType<cv::Mat>("cv::Mat");
-    qRegisterMetaType<std::vector<cv::Rect>>("std::vector<cv::Rect>");
-#endif
     setupUI();
     updateButtons();
 }
@@ -72,7 +67,7 @@ void FaceRegistrationView::setupUI() {
     controlLayout->setContentsMargins(20, 20, 20, 20);
 
     m_studentInfoLbl = new QLabel("No student selected", controlCard);
-    m_studentInfoLbl->setStyleSheet("font-family: 'Space Grotesk'; font-size: 16px; font-weight: bold; color: #1F2937;");
+    m_studentInfoLbl->setObjectName("CardTitle");
     m_studentInfoLbl->setWordWrap(true);
 
     m_cameraToggleBtn = new QPushButton("Start Camera", controlCard);
@@ -144,12 +139,41 @@ void FaceRegistrationView::toggleCamera() {
         m_cameraWorker = new Services::CameraWorker(0);
         m_cameraWorker->moveToThread(m_cameraThread);
 
+        // Update preview label on EVERY frame image
+        connect(m_cameraWorker, &Services::CameraWorker::frameReady, this, [this](const QImage& img) {
+            if (m_isCameraRunning) {
+                m_cameraPreview->setPixmap(QPixmap::fromImage(img).scaled(
+                    m_cameraPreview->size(), 
+                    Qt::KeepAspectRatio, 
+                    Qt::SmoothTransformation
+                ));
+            }
+        });
+
+        // Save face samples when face detected
+        connect(m_cameraWorker, &Services::CameraWorker::faceDetected, this, [this](const QImage& faceRoi) {
+            if (m_isCapturing && !m_targetStudentId.isEmpty()) {
 #ifndef OPTIX_MOCK_BACKEND
-        connect(m_cameraWorker, &Services::CameraWorker::frameCaptured, this, &FaceRegistrationView::onFrameCaptured, Qt::QueuedConnection);
+                // Convert QImage to cv::Mat and save
+                QImage grayImg = faceRoi.convertToFormat(QImage::Format_Grayscale8);
+                cv::Mat grayMat(grayImg.height(), grayImg.width(), CV_8UC1, const_cast<uchar*>(grayImg.bits()), grayImg.bytesPerLine());
+                bool saved = m_context->faceService->saveFaceSample(m_targetStudentId.toStdString(), m_capturedCount, grayMat.clone());
+#else
+                bool saved = true;
 #endif
-        connect(m_cameraWorker, &Services::CameraWorker::cameraError, this, [this](const QString& err) {
-            m_statusLbl->setText("Camera Error: " + err);
-            QMessageBox::warning(this, "Camera Error", "Could not open camera device. Please check webcam permissions or device connection.");
+                if (saved) {
+                    m_capturedCount++;
+                    m_captureProgressBar->setValue(m_capturedCount);
+
+                    if (m_capturedCount >= 60) {
+                        m_isCapturing = false;
+                        m_context->studentService->updateFaceRegistrationStatus(m_targetStudentId.toStdString(), true);
+                        m_statusLbl->setText("Face dataset registered successfully! Proceed to train model.");
+                        QMessageBox::information(this, "Face Capture Complete", "Successfully saved 60 facial samples into the student dataset directory. Ready for model training.");
+                        updateButtons();
+                    }
+                }
+            }
         });
 
         connect(m_cameraThread, &QThread::started, m_cameraWorker, &Services::CameraWorker::startCapturing);
@@ -177,50 +201,6 @@ void FaceRegistrationView::stopCameraThread() {
         m_cameraThread = nullptr;
     }
 }
-
-#ifndef OPTIX_MOCK_BACKEND
-void FaceRegistrationView::onFrameCaptured(const QImage& displayImage, const cv::Mat& rawFrame, const std::vector<cv::Rect>& faceRects) {
-    if (!m_isCameraRunning) return;
-
-    // Display live camera feed on QLabel
-    m_cameraPreview->setPixmap(QPixmap::fromImage(displayImage).scaled(m_cameraPreview->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-
-    // Handle dataset capture if active
-    if (m_isCapturing && !m_targetStudentId.isEmpty() && !faceRects.empty()) {
-        const auto& faceBox = faceRects[0]; // Take primary detected face
-        
-        // Ensure bounding box is within frame bounds
-        cv::Rect safeBox = faceBox & cv::Rect(0, 0, rawFrame.cols, rawFrame.rows);
-        if (safeBox.width > 0 && safeBox.height > 0) {
-            cv::Mat croppedFace = rawFrame(safeBox);
-            
-            // Convert to grayscale and resize to standard 200x200
-            cv::Mat grayFace;
-            if (croppedFace.channels() == 3) {
-                cv::cvtColor(croppedFace, grayFace, cv::COLOR_BGR2GRAY);
-            } else {
-                grayFace = croppedFace.clone();
-            }
-            cv::resize(grayFace, grayFace, cv::Size(200, 200));
-
-            // Save sample to disk via FaceService
-            bool saved = m_context->faceService->saveFaceSample(m_targetStudentId.toStdString(), m_capturedCount, grayFace);
-            if (saved) {
-                m_capturedCount++;
-                m_captureProgressBar->setValue(m_capturedCount);
-
-                if (m_capturedCount >= 60) {
-                    m_isCapturing = false;
-                    m_context->studentService->updateFaceRegistrationStatus(m_targetStudentId.toStdString(), true);
-                    m_statusLbl->setText("Face dataset registered successfully! Proceed to train model.");
-                    QMessageBox::information(this, "Face Capture Complete", "Successfully saved 60 facial samples into the student dataset directory. Ready for model training.");
-                    updateButtons();
-                }
-            }
-        }
-    }
-}
-#endif
 
 void FaceRegistrationView::startCapture() {
     if (m_targetStudentId.isEmpty()) {

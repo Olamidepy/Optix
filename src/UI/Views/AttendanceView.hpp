@@ -9,10 +9,6 @@
 #include <map>
 #include <string>
 
-#ifndef OPTIX_MOCK_BACKEND
-#include <opencv2/core.hpp>
-#endif
-
 namespace Optix::Application {
 class AppContext;
 }
@@ -33,10 +29,6 @@ public:
 private slots:
     void toggleSession();
     void simulateVerification(); // Mock fallback verification trigger
-
-#ifndef OPTIX_MOCK_BACKEND
-    void onFrameCaptured(const QImage& displayImage, const cv::Mat& rawFrame, const std::vector<cv::Rect>& faceRects);
-#endif
 
 private:
     void setupUI();

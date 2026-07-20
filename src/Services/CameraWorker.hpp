@@ -2,8 +2,6 @@
 
 #include <QObject>
 #include <QImage>
-#include <QMutex>
-#include <memory>
 #include <vector>
 #include <string>
 
@@ -22,7 +20,6 @@ public:
     explicit CameraWorker(int deviceIndex = 0, QObject* parent = nullptr);
     ~CameraWorker() override;
 
-    // Set cascade path for face detection
     void setCascadePath(const std::string& path);
 
 public slots:
@@ -30,15 +27,11 @@ public slots:
     void stopCapturing();
 
 signals:
-    // Emitted every time a new video frame is processed
-    // frameImage: RGB image ready for Qt QLabel preview (with bounding boxes drawn)
-    // rawGrayFrame: Processed grayscale matrix for face recognition/saving
-    // faceRois: Cropped face bounding box matrices
-    void frameReady(const QImage& frameImage, const std::vector<unsigned char>& rawJpegBuffer);
-    
-#ifndef OPTIX_MOCK_BACKEND
-    void frameCaptured(const QImage& displayImage, const cv::Mat& rawFrame, const std::vector<cv::Rect>& faceRects);
-#endif
+    // Emitted every frame (~30 FPS) with the RGB preview image (face rectangles drawn)
+    void frameReady(const QImage& frameImage);
+
+    // Emitted whenever a face ROI is detected and cropped (200x200 grayscale QImage)
+    void faceDetected(const QImage& faceRoiImage);
 
     void cameraError(const QString& errorMessage);
     void cameraStopped();

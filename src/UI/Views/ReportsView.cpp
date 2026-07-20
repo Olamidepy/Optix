@@ -38,10 +38,13 @@ void ReportsView::setupUI() {
     textLayout->addWidget(subtitleLbl);
     titleLayout->addLayout(textLayout);
 
-    m_exportBtn = new QPushButton("📥 Export CSV", this);
+    m_exportBtn = new QPushButton("Export CSV", this);
+    m_exportBtn->setIcon(QIcon("Public/Export.png"));
+    m_exportBtn->setIconSize(QSize(20, 20));
     m_exportBtn->setObjectName("PrimaryBtn");
     m_exportBtn->setCursor(Qt::PointingHandCursor);
-    titleLayout->addWidget(m_exportBtn);
+    m_exportBtn->setFixedWidth(150);
+    titleLayout->addWidget(m_exportBtn, 0, Qt::AlignRight | Qt::AlignVCenter);
     
     mainLayout->addLayout(titleLayout);
 

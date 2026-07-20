@@ -149,24 +149,25 @@ void SettingsView::setupUI() {
     // 4. System Information Card
     QFrame* infoCard = new QFrame(this);
     infoCard->setObjectName("PanelCard");
-    infoCard->setStyleSheet("background-color: #FAFAFA; border: 1px solid #ECECEC;");
     
     QVBoxLayout* infoLayout = new QVBoxLayout(infoCard);
     infoLayout->setSpacing(8);
     infoLayout->setContentsMargins(20, 20, 20, 20);
 
     QLabel* appInfoTitle = new QLabel("System Information", infoCard);
-    appInfoTitle->setStyleSheet("font-family: 'Space Grotesk'; font-size: 16px; font-weight: bold; color: #1F2937;");
+    appInfoTitle->setObjectName("CardTitle");
     
     QLabel* detailsLbl = new QLabel(
         "Optix Face Recognition Attendance System v1.0.0\n"
-        "Engine: C++20 | Qt 6 Widgets | OpenCV 4.10.0 Contrib\n"
+        "Course: Built for CPE 302 - C++ Programming\n"
+        "Supervised by: Dr. Engr. Akinlabi\n"
+        "Engine: C++20 | Qt 6 Widgets | OpenCV 4.11.0 Contrib\n"
         "Storage: SQLite3 Local Database File\n"
         "Design: Space Grotesk / Inter Typography & Responsive CSS Layouts\n"
         "Developed under clean architecture pattern.",
         infoCard
     );
-    detailsLbl->setStyleSheet("font-size: 12px; color: #6B7280; line-height: 18px;");
+    detailsLbl->setStyleSheet("font-size: 12px; color: @text_muted; line-height: 18px;");
 
     infoLayout->addWidget(appInfoTitle);
     infoLayout->addWidget(detailsLbl);

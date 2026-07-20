@@ -9,7 +9,6 @@
 #include <QMessageBox>
 #include <QDateTime>
 #include <QDebug>
-#include <QMetaType>
 
 #ifndef OPTIX_MOCK_BACKEND
 #include <opencv2/imgproc.hpp>
@@ -19,10 +18,6 @@ namespace Optix::UI::Views {
 
 AttendanceView::AttendanceView(std::shared_ptr<Application::AppContext> context, QWidget* parent)
     : QWidget(parent), m_context(std::move(context)) {
-#ifndef OPTIX_MOCK_BACKEND
-    qRegisterMetaType<cv::Mat>("cv::Mat");
-    qRegisterMetaType<std::vector<cv::Rect>>("std::vector<cv::Rect>");
-#endif
     setupUI();
     refreshSessionLogs();
 }
@@ -90,7 +85,7 @@ void AttendanceView::setupUI() {
     divider->setStyleSheet("background-color: #ECECEC;");
 
     QLabel* tableTitle = new QLabel("Today's Check-ins:", controlCard);
-    tableTitle->setStyleSheet("font-family: 'Space Grotesk'; font-size: 14px; font-weight: bold; color: #1F2937;");
+    tableTitle->setObjectName("CardTitle");
 
     m_todayLogsTable = new QTableWidget(controlCard);
     m_todayLogsTable->setColumnCount(3);
@@ -141,12 +136,55 @@ void AttendanceView::toggleSession() {
         m_cameraWorker = new Services::CameraWorker(0);
         m_cameraWorker->moveToThread(m_cameraThread);
 
+        // Render live camera feed
+        connect(m_cameraWorker, &Services::CameraWorker::frameReady, this, [this](const QImage& img) {
+            if (m_isSessionRunning) {
+                m_cameraPreview->setPixmap(QPixmap::fromImage(img).scaled(
+                    m_cameraPreview->size(), 
+                    Qt::KeepAspectRatio, 
+                    Qt::SmoothTransformation
+                ));
+            }
+        });
+
+        // Handle live face recognition match
+        connect(m_cameraWorker, &Services::CameraWorker::faceDetected, this, [this](const QImage& faceRoi) {
+            if (!m_isSessionRunning) return;
+
 #ifndef OPTIX_MOCK_BACKEND
-        connect(m_cameraWorker, &Services::CameraWorker::frameCaptured, this, &AttendanceView::onFrameCaptured, Qt::QueuedConnection);
+            QImage grayImg = faceRoi.convertToFormat(QImage::Format_Grayscale8);
+            cv::Mat grayFace(grayImg.height(), grayImg.width(), CV_8UC1, const_cast<uchar*>(grayImg.bits()), grayImg.bytesPerLine());
+
+            double confidence = 0.0;
+            std::string recognizedId = m_context->faceService->recognizeStudent(grayFace, confidence);
+
+            if (!recognizedId.empty() && confidence < 75.0) {
+                QDateTime now = QDateTime::currentDateTime();
+                if (m_lastRecognitionTime.find(recognizedId) != m_lastRecognitionTime.end()) {
+                    if (m_lastRecognitionTime[recognizedId].msecsTo(now) < 3000) {
+                        return;
+                    }
+                }
+                m_lastRecognitionTime[recognizedId] = now;
+
+                auto sOpt = m_context->studentService->getStudent(recognizedId);
+                std::string studentName = sOpt.has_value() ? sOpt->full_name : recognizedId;
+                std::string today = QDate::currentDate().toString("yyyy-MM-dd").toStdString();
+
+                if (m_context->attendanceRepository->hasRecord(recognizedId, today)) {
+                    m_statusLbl->setText(QString("⚠️ Recognition Alert:\n%1 already recorded today.")
+                        .arg(QString::fromStdString(studentName)));
+                    m_statusLbl->setStyleSheet("color: #F97316; font-size: 14px; font-weight: bold;");
+                } else {
+                    if (m_context->attendanceRepository->recordAttendance(recognizedId, today, "Present")) {
+                        m_statusLbl->setText(QString("✅ Verified:\n%1 checked in successfully!")
+                            .arg(QString::fromStdString(studentName)));
+                        m_statusLbl->setStyleSheet("color: #22C55E; font-size: 14px; font-weight: bold;");
+                        refreshSessionLogs();
+                    }
+                }
+            }
 #endif
-        connect(m_cameraWorker, &Services::CameraWorker::cameraError, this, [this](const QString& err) {
-            m_statusLbl->setText("Camera Error: " + err);
-            QMessageBox::warning(this, "Camera Error", "Could not open camera device. Please check webcam permissions or device connection.");
         });
 
         connect(m_cameraThread, &QThread::started, m_cameraWorker, &Services::CameraWorker::startCapturing);
@@ -179,68 +217,6 @@ void AttendanceView::stopCameraThread() {
         m_cameraThread = nullptr;
     }
 }
-
-#ifndef OPTIX_MOCK_BACKEND
-void AttendanceView::onFrameCaptured(const QImage& displayImage, const cv::Mat& rawFrame, const std::vector<cv::Rect>& faceRects) {
-    if (!m_isSessionRunning) return;
-
-    // Display camera preview
-    m_cameraPreview->setPixmap(QPixmap::fromImage(displayImage).scaled(m_cameraPreview->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-
-    // Perform real-time recognition on detected faces
-    if (!faceRects.empty()) {
-        const auto& faceBox = faceRects[0];
-        cv::Rect safeBox = faceBox & cv::Rect(0, 0, rawFrame.cols, rawFrame.rows);
-        
-        if (safeBox.width > 0 && safeBox.height > 0) {
-            cv::Mat croppedFace = rawFrame(safeBox);
-            
-            // Format face for LBPH recognizer (200x200 grayscale)
-            cv::Mat grayFace;
-            if (croppedFace.channels() == 3) {
-                cv::cvtColor(croppedFace, grayFace, cv::COLOR_BGR2GRAY);
-            } else {
-                grayFace = croppedFace.clone();
-            }
-            cv::resize(grayFace, grayFace, cv::Size(200, 200));
-
-            double confidence = 0.0;
-            std::string recognizedId = m_context->faceService->recognizeStudent(grayFace, confidence);
-
-            // LBPH Confidence metric: Lower distance = higher match confidence.
-            // Distance threshold < 75.0 is typically a valid match.
-            if (!recognizedId.empty() && confidence < 75.0) {
-                QDateTime now = QDateTime::currentDateTime();
-                
-                // Cooldown: Avoid spamming duplicate signals within 3 seconds
-                if (m_lastRecognitionTime.find(recognizedId) != m_lastRecognitionTime.end()) {
-                    if (m_lastRecognitionTime[recognizedId].msecsTo(now) < 3000) {
-                        return;
-                    }
-                }
-                m_lastRecognitionTime[recognizedId] = now;
-
-                auto sOpt = m_context->studentService->getStudent(recognizedId);
-                std::string studentName = sOpt.has_value() ? sOpt->full_name : recognizedId;
-                std::string today = QDate::currentDate().toString("yyyy-MM-dd").toStdString();
-
-                if (m_context->attendanceRepository->hasRecord(recognizedId, today)) {
-                    m_statusLbl->setText(QString("⚠️ Recognition Alert:\n%1 already recorded today.")
-                        .arg(QString::fromStdString(studentName)));
-                    m_statusLbl->setStyleSheet("color: #F97316; font-size: 14px; font-weight: bold;");
-                } else {
-                    if (m_context->attendanceRepository->recordAttendance(recognizedId, today, "Present")) {
-                        m_statusLbl->setText(QString("✅ Verified:\n%1 checked in successfully!")
-                            .arg(QString::fromStdString(studentName)));
-                        m_statusLbl->setStyleSheet("color: #22C55E; font-size: 14px; font-weight: bold;");
-                        refreshSessionLogs();
-                    }
-                }
-            }
-        }
-    }
-}
-#endif
 
 void AttendanceView::simulateVerification() {
     if (!m_isSessionRunning) return;
