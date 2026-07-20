@@ -3,10 +3,20 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QProgressBar>
+#include <QThread>
 #include <memory>
+#include <vector>
+
+#ifndef OPTIX_MOCK_BACKEND
+#include <opencv2/core.hpp>
+#endif
 
 namespace Optix::Application {
 class AppContext;
+}
+
+namespace Optix::Services {
+class CameraWorker;
 }
 
 namespace Optix::UI::Views {
@@ -16,7 +26,7 @@ class FaceRegistrationView : public QWidget {
 
 public:
     explicit FaceRegistrationView(std::shared_ptr<Application::AppContext> context, QWidget* parent = nullptr);
-    ~FaceRegistrationView() override = default;
+    ~FaceRegistrationView() override;
 
     // Direct registration to a specific student
     void setTargetStudent(const QString& studentId);
@@ -26,9 +36,14 @@ private slots:
     void startCapture();
     void triggerModelTraining();
 
+#ifndef OPTIX_MOCK_BACKEND
+    void onFrameCaptured(const QImage& displayImage, const cv::Mat& rawFrame, const std::vector<cv::Rect>& faceRects);
+#endif
+
 private:
     void setupUI();
     void updateButtons();
+    void stopCameraThread();
 
     std::shared_ptr<Application::AppContext> m_context;
     QString m_targetStudentId;
@@ -45,6 +60,10 @@ private:
 
     bool m_isCameraRunning{false};
     bool m_isCapturing{false};
+    int m_capturedCount{0};
+
+    QThread* m_cameraThread{nullptr};
+    Services::CameraWorker* m_cameraWorker{nullptr};
 };
 
 } // namespace Optix::UI::Views

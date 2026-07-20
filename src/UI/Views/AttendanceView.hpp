@@ -3,10 +3,22 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QTableWidget>
+#include <QThread>
+#include <QDateTime>
 #include <memory>
+#include <map>
+#include <string>
+
+#ifndef OPTIX_MOCK_BACKEND
+#include <opencv2/core.hpp>
+#endif
 
 namespace Optix::Application {
 class AppContext;
+}
+
+namespace Optix::Services {
+class CameraWorker;
 }
 
 namespace Optix::UI::Views {
@@ -16,15 +28,20 @@ class AttendanceView : public QWidget {
 
 public:
     explicit AttendanceView(std::shared_ptr<Application::AppContext> context, QWidget* parent = nullptr);
-    ~AttendanceView() override = default;
+    ~AttendanceView() override;
 
 private slots:
     void toggleSession();
-    void simulateVerification(); // Mock verification stub
+    void simulateVerification(); // Mock fallback verification trigger
+
+#ifndef OPTIX_MOCK_BACKEND
+    void onFrameCaptured(const QImage& displayImage, const cv::Mat& rawFrame, const std::vector<cv::Rect>& faceRects);
+#endif
 
 private:
     void setupUI();
     void refreshSessionLogs();
+    void stopCameraThread();
 
     std::shared_ptr<Application::AppContext> m_context;
 
@@ -35,6 +52,12 @@ private:
     QTableWidget* m_todayLogsTable{nullptr};
 
     bool m_isSessionRunning{false};
+
+    QThread* m_cameraThread{nullptr};
+    Services::CameraWorker* m_cameraWorker{nullptr};
+
+    // Cooldown map to avoid rapid duplicate recognition events in the same session
+    std::map<std::string, QDateTime> m_lastRecognitionTime;
 };
 
 } // namespace Optix::UI::Views

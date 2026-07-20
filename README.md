@@ -178,7 +178,7 @@ On database initialization, a default administrative account is automatically se
 - **Business Services**: Program controller services (`AuthService`, `StudentService`) handling password SHA-256 encryptions and emails/phones validation regexes.
 - **GUI Views**: Design login card prompts, greeting onboarding widgets, and directory list tables with sliding modals.
 
-### Sprint 3: OpenCV Video Acquisition & Face Dataset Capture (Upcoming)
+###  Sprint 3: OpenCV Video Acquisition & Face Dataset Capture (In Progress)
 - **Asynchronous Camera Threads**: Implement a concurrent `CameraWorker` class using `QThread`/`QObject` to query webcam video frames without blocking GUI repaint events.
 - **Haar Cascade Face Detection**: Integrate OpenCV face classifiers to identify regions of interest (ROI) in real-time frame matrices.
 - **Automated Dataset Collection**: Write grayscale images directly into local file paths (`datasets/raw/{student_id}/sample_{index}.jpg`) once faces are verified.

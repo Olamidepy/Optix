@@ -1,5 +1,6 @@
 #include "AttendanceView.hpp"
 #include "Application/AppContext.hpp"
+#include "Services/CameraWorker.hpp"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFrame>
@@ -7,13 +8,27 @@
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QDateTime>
+#include <QDebug>
+#include <QMetaType>
+
+#ifndef OPTIX_MOCK_BACKEND
+#include <opencv2/imgproc.hpp>
+#endif
 
 namespace Optix::UI::Views {
 
 AttendanceView::AttendanceView(std::shared_ptr<Application::AppContext> context, QWidget* parent)
     : QWidget(parent), m_context(std::move(context)) {
+#ifndef OPTIX_MOCK_BACKEND
+    qRegisterMetaType<cv::Mat>("cv::Mat");
+    qRegisterMetaType<std::vector<cv::Rect>>("std::vector<cv::Rect>");
+#endif
     setupUI();
     refreshSessionLogs();
+}
+
+AttendanceView::~AttendanceView() {
+    stopCameraThread();
 }
 
 void AttendanceView::setupUI() {
@@ -101,6 +116,7 @@ void AttendanceView::setupUI() {
 
 void AttendanceView::toggleSession() {
     if (m_isSessionRunning) {
+        stopCameraThread();
         m_isSessionRunning = false;
         m_cameraPreview->setText("Session Offline");
         m_cameraPreview->setStyleSheet("color: #FFFFFF; background-color: #1C1C1C; font-size: 16px; font-weight: bold; border-radius: 8px;");
@@ -121,9 +137,26 @@ void AttendanceView::toggleSession() {
             return;
         }
 
+        m_cameraThread = new QThread(this);
+        m_cameraWorker = new Services::CameraWorker(0);
+        m_cameraWorker->moveToThread(m_cameraThread);
+
+#ifndef OPTIX_MOCK_BACKEND
+        connect(m_cameraWorker, &Services::CameraWorker::frameCaptured, this, &AttendanceView::onFrameCaptured, Qt::QueuedConnection);
+#endif
+        connect(m_cameraWorker, &Services::CameraWorker::cameraError, this, [this](const QString& err) {
+            m_statusLbl->setText("Camera Error: " + err);
+            QMessageBox::warning(this, "Camera Error", "Could not open camera device. Please check webcam permissions or device connection.");
+        });
+
+        connect(m_cameraThread, &QThread::started, m_cameraWorker, &Services::CameraWorker::startCapturing);
+        connect(m_cameraWorker, &Services::CameraWorker::cameraStopped, m_cameraThread, &QThread::quit);
+        connect(m_cameraWorker, &Services::CameraWorker::cameraStopped, m_cameraWorker, &Services::CameraWorker::deleteLater);
+        connect(m_cameraThread, &QThread::finished, m_cameraThread, &QThread::deleteLater);
+
+        m_cameraThread->start();
+
         m_isSessionRunning = true;
-        m_cameraPreview->setText("[ Live Attendance Camera Feed - Sprint 5 ]\n(Press 'Simulate Verification' to test logic flow)");
-        m_cameraPreview->setStyleSheet("color: #9CA3AF; background-color: #000000; font-size: 14px; border-radius: 8px;");
         m_sessionToggleBtn->setText("Stop Attendance Session");
         m_sessionToggleBtn->setObjectName("SecondaryBtn");
         m_sessionToggleBtn->style()->unpolish(m_sessionToggleBtn);
@@ -134,6 +167,80 @@ void AttendanceView::toggleSession() {
     }
     refreshSessionLogs();
 }
+
+void AttendanceView::stopCameraThread() {
+    if (m_cameraWorker) {
+        m_cameraWorker->stopCapturing();
+        m_cameraWorker = nullptr;
+    }
+    if (m_cameraThread) {
+        m_cameraThread->quit();
+        m_cameraThread->wait();
+        m_cameraThread = nullptr;
+    }
+}
+
+#ifndef OPTIX_MOCK_BACKEND
+void AttendanceView::onFrameCaptured(const QImage& displayImage, const cv::Mat& rawFrame, const std::vector<cv::Rect>& faceRects) {
+    if (!m_isSessionRunning) return;
+
+    // Display camera preview
+    m_cameraPreview->setPixmap(QPixmap::fromImage(displayImage).scaled(m_cameraPreview->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+
+    // Perform real-time recognition on detected faces
+    if (!faceRects.empty()) {
+        const auto& faceBox = faceRects[0];
+        cv::Rect safeBox = faceBox & cv::Rect(0, 0, rawFrame.cols, rawFrame.rows);
+        
+        if (safeBox.width > 0 && safeBox.height > 0) {
+            cv::Mat croppedFace = rawFrame(safeBox);
+            
+            // Format face for LBPH recognizer (200x200 grayscale)
+            cv::Mat grayFace;
+            if (croppedFace.channels() == 3) {
+                cv::cvtColor(croppedFace, grayFace, cv::COLOR_BGR2GRAY);
+            } else {
+                grayFace = croppedFace.clone();
+            }
+            cv::resize(grayFace, grayFace, cv::Size(200, 200));
+
+            double confidence = 0.0;
+            std::string recognizedId = m_context->faceService->recognizeStudent(grayFace, confidence);
+
+            // LBPH Confidence metric: Lower distance = higher match confidence.
+            // Distance threshold < 75.0 is typically a valid match.
+            if (!recognizedId.empty() && confidence < 75.0) {
+                QDateTime now = QDateTime::currentDateTime();
+                
+                // Cooldown: Avoid spamming duplicate signals within 3 seconds
+                if (m_lastRecognitionTime.find(recognizedId) != m_lastRecognitionTime.end()) {
+                    if (m_lastRecognitionTime[recognizedId].msecsTo(now) < 3000) {
+                        return;
+                    }
+                }
+                m_lastRecognitionTime[recognizedId] = now;
+
+                auto sOpt = m_context->studentService->getStudent(recognizedId);
+                std::string studentName = sOpt.has_value() ? sOpt->full_name : recognizedId;
+                std::string today = QDate::currentDate().toString("yyyy-MM-dd").toStdString();
+
+                if (m_context->attendanceRepository->hasRecord(recognizedId, today)) {
+                    m_statusLbl->setText(QString("⚠️ Recognition Alert:\n%1 already recorded today.")
+                        .arg(QString::fromStdString(studentName)));
+                    m_statusLbl->setStyleSheet("color: #F97316; font-size: 14px; font-weight: bold;");
+                } else {
+                    if (m_context->attendanceRepository->recordAttendance(recognizedId, today, "Present")) {
+                        m_statusLbl->setText(QString("✅ Verified:\n%1 checked in successfully!")
+                            .arg(QString::fromStdString(studentName)));
+                        m_statusLbl->setStyleSheet("color: #22C55E; font-size: 14px; font-weight: bold;");
+                        refreshSessionLogs();
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
 
 void AttendanceView::simulateVerification() {
     if (!m_isSessionRunning) return;

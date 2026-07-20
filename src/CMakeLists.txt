@@ -35,6 +35,8 @@ set(OPTIX_SOURCES
     Services/StudentService.cpp
     Services/FaceService.hpp
     Services/FaceService.cpp
+    Services/CameraWorker.hpp
+    Services/CameraWorker.cpp
     
     FaceRecognition/IFaceRecognizer.hpp
     FaceRecognition/LBPHFaceRecognizer.hpp
